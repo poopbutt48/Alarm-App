@@ -24,6 +24,17 @@ Download it on your phone, unzip, and install (allow "install unknown apps"). Re
 
 All AI runs on the phone; no images leave the device.
 
+### Using a Gemma model file (e.g. from Google AI Edge Gallery)
+In setup, pick **Show the AI something → Use a Gemma model file (.litertlm)…** and choose an
+image-capable model: `gemma-4-E2B-it.litertlm`, `gemma-4-E4B-it.litertlm`,
+`gemma-3n-E2B-it-int4.litertlm` or `gemma-3n-E4B-it-int4.litertlm`. The app copies it into its own
+storage (Android doesn't let one app read another app's private files) and test-loads it.
+If a Gemma file is set up it's used instead of Gemini Nano.
+
+Edge Gallery keeps its files in `Android/data/com.google.ai.edge.gallery/files/<model>/<version>/`.
+If your file manager can't open that folder, download the `.litertlm` again from the model's
+Hugging Face page (e.g. `litert-community/gemma-4-E2B-it-litert-lm`) in your browser.
+
 Gemini Nano only works on [supported devices](https://developers.google.com/ml-kit/genai#device-support)
 (the Galaxy S25/S26 series is listed). The app checks this and lets you download the model from the setup screen.
 

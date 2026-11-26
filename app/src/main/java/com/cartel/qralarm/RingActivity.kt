@@ -19,7 +19,6 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.lifecycleScope
-import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
@@ -138,10 +137,12 @@ class RingActivity : ComponentActivity(), SensorEventListener {
                 frontCamera = false
                 startCamera()
                 lifecycleScope.launch {
-                    val s = runCatching { Nano.status() }.getOrDefault(FeatureStatus.UNAVAILABLE)
-                    if (s != FeatureStatus.AVAILABLE && task == Task.AI_SHOW) {
-                        Toast.makeText(this@RingActivity, "On-device AI is ${Nano.statusName(s)} — solve math instead", Toast.LENGTH_LONG).show()
+                    val problem = Vision.problem(this@RingActivity)
+                    if (problem != null && task == Task.AI_SHOW) {
+                        Toast.makeText(this@RingActivity, "AI not ready: $problem — solve math instead", Toast.LENGTH_LONG).show()
                         switchToMath(10)
+                    } else {
+                        Vision.warmUp(this@RingActivity)
                     }
                 }
             }
@@ -238,7 +239,7 @@ class RingActivity : ComponentActivity(), SensorEventListener {
         action.isEnabled = false
         info.text = "AI is looking…"
         lifecycleScope.launch {
-            runCatching { Nano.check(frame, goal) }
+            runCatching { Vision.check(this@RingActivity, frame, goal) }
                 .onSuccess { v ->
                     if (v.pass) { done(); return@launch }
                     aiFails++

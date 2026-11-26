@@ -11,6 +11,7 @@ import android.text.InputType
 import android.view.View
 import android.widget.*
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
@@ -24,6 +25,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var amountLabel: TextView
     private lateinit var goalBox: EditText
     private lateinit var aiStatus: TextView
+    private lateinit var gemmaBtn: Button
+    private var importing = false
+    private val pickModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importGemma(uri)
+    }
     private var selected = Task.MATH
     private var downloading = false
 
@@ -56,6 +62,9 @@ class MainActivity : ComponentActivity() {
             setSingleLine()
         }
         aiStatus = TextView(this).apply { textSize = 15f }
+        gemmaBtn = btn("Use a Gemma model file (.litertlm)…") {
+            if (!importing && !p.getBoolean("ringing", false)) pickModel.launch(arrayOf("*/*"))
+        }
 
         setContentView(ScrollView(this).apply {
             addView(LinearLayout(this@MainActivity).apply {
@@ -67,6 +76,7 @@ class MainActivity : ComponentActivity() {
                 addView(group)
                 addView(goalBox)
                 addView(aiStatus)
+                addView(gemmaBtn)
                 addView(setupBtn)
                 addView(amountRow)
                 addView(btn("Set alarm") { arm(tp.hour, tp.minute) })
@@ -97,12 +107,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateSetupUi() {
-        for (v in listOf(setupBtn, amountRow, goalBox, aiStatus)) v.visibility = View.GONE
+        for (v in listOf(setupBtn, amountRow, goalBox, aiStatus, gemmaBtn)) v.visibility = View.GONE
         when (selected) {
             Task.QR -> { setupBtn.text = "Scan & save the QR/barcode to use"; setupBtn.visibility = View.VISIBLE }
             Task.AI_SHOW -> {
                 goalBox.visibility = View.VISIBLE
                 aiStatus.visibility = View.VISIBLE
+                gemmaBtn.visibility = View.VISIBLE
                 refreshAi()
             }
             Task.PUSHUPS, Task.SQUATS, Task.STEPS, Task.MATH, Task.SHAKE -> {
@@ -120,9 +131,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshAi() = lifecycleScope.launch {
-        if (downloading) return@launch
+        if (downloading || importing) return@launch
+        if (Gemma.installed(this@MainActivity)) {
+            aiStatus.text = "AI: ${Gemma.name(this@MainActivity)} (${Gemma.sizeGb(this@MainActivity)}) ✓ on this phone"
+            gemmaBtn.text = "Replace Gemma model file…"
+            setupBtn.visibility = View.GONE
+            return@launch
+        }
+        gemmaBtn.text = "Use a Gemma model file (.litertlm)…"
         val s = runCatching { Nano.status() }.getOrDefault(FeatureStatus.UNAVAILABLE)
-        aiStatus.text = "On-device AI (Gemini Nano): ${Nano.statusName(s)}"
+        aiStatus.text = "Built-in Gemini Nano: ${Nano.statusName(s)}\n" +
+            "Or pick a Gemma 4 / Gemma 3n .litertlm file (like the ones Edge Gallery uses)."
         if (s == FeatureStatus.DOWNLOADABLE) {
             setupBtn.text = "Download the AI model"
             setupBtn.visibility = View.VISIBLE
@@ -165,6 +184,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun importGemma(uri: Uri) {
+        importing = true
+        gemmaBtn.isEnabled = false
+        aiStatus.text = "Copying model…"
+        lifecycleScope.launch {
+            try {
+                Gemma.import(this@MainActivity, uri) { f -> aiStatus.text = "Copying model… ${(f * 100).toInt()}%" }
+                aiStatus.text = "Loading model to test it (can take ~10–30 s)…"
+                Gemma.load(this@MainActivity)
+                toast("Model works: ${Gemma.name(this@MainActivity)}")
+            } catch (e: Throwable) {
+                toast("Couldn't use that model: ${e.message}")
+                if (e !is IllegalArgumentException) Gemma.delete(this@MainActivity)
+            } finally {
+                importing = false
+                gemmaBtn.isEnabled = true
+                refreshAi()
+            }
+        }
+    }
+
     private fun granted(perm: String) = checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
 
     /** Validates and stores the selected task. Returns false if setup is incomplete. */
@@ -175,10 +215,9 @@ class MainActivity : ComponentActivity() {
             Task.AI_SHOW -> {
                 val goal = goalBox.text.toString().trim()
                 if (goal.length < 3) { toast("Type what the camera must see, e.g. \"a milk jug\""); return false }
-                val s = runCatching { Nano.status() }.getOrDefault(FeatureStatus.UNAVAILABLE)
-                if (s != FeatureStatus.AVAILABLE) {
-                    toast("The on-device AI is ${Nano.statusName(s)}." +
-                        if (s == FeatureStatus.DOWNLOADABLE) " Tap \"Download the AI model\" first." else "")
+                if (importing) { toast("Wait for the model to finish copying"); return false }
+                Vision.problem(this)?.let {
+                    toast("AI not ready: $it. Pick a Gemma .litertlm file first.")
                     return false
                 }
                 p.edit().putString("goal", goal).apply()

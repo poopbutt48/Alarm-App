@@ -16,6 +16,10 @@
         android:label="Task Alarm"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
+        <!-- Needed by LiteRT-LM to run Gemma on the GPU -->
+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui" />

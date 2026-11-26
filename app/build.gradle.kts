@@ -11,8 +11,9 @@ android {
         applicationId = "com.cartel.qralarm"
         minSdk = 34
         targetSdk = 35
-        versionCode = 3
-        versionName = "3.0"
+        versionCode = 4
+        versionName = "4.0"
+        ndk { abiFilters += "arm64-v8a" } // phones only; keeps the APK smaller
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -28,6 +29,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     // On-device Gemini Nano (via Android AICore)
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    // Gemma model files (.litertlm, same as Google AI Edge Gallery)
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.20.0")
     // On-device body pose tracking for counting reps
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
     implementation("androidx.activity:activity-ktx:1.10.1")
