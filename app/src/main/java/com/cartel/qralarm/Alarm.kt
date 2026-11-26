@@ -4,22 +4,17 @@ import android.app.*
 import android.content.*
 import android.content.pm.ServiceInfo
 import android.media.*
-import android.net.Uri
 import android.os.*
 import android.widget.Toast
-import androidx.core.content.FileProvider
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.label.ImageLabel
-import com.google.mlkit.vision.label.ImageLabeling
-import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
-import java.io.File
 import java.util.Calendar
 
 /** The tasks you can pick to turn the alarm off. */
-enum class Task(val title: String) {
+enum class Task(val title: String, val camera: Boolean = false) {
+    AI_SHOW("Show the AI something (e.g. a milk jug)", camera = true),
+    PUSHUPS("Push-ups (AI counts them)", camera = true),
+    SQUATS("Squats (AI counts them)", camera = true),
     QR("Scan a QR / barcode"),
-    PHOTO("Take a photo of something"),
     STEPS("Walk a number of steps"),
     MATH("Solve math problems"),
     SHAKE("Shake the phone"),
@@ -29,10 +24,12 @@ object Alarm {
     fun prefs(c: Context): SharedPreferences = c.getSharedPreferences("a", Context.MODE_PRIVATE)
 
     fun task(c: Context): Task =
-        runCatching { Task.valueOf(prefs(c).getString("task", null)!!) }.getOrDefault(Task.QR)
+        runCatching { Task.valueOf(prefs(c).getString("task", null)!!) }.getOrDefault(Task.MATH)
 
     /** How many steps / problems / shakes the chosen task needs. */
     fun amount(c: Context, t: Task): Int = prefs(c).getInt("amount_$t", when (t) {
+        Task.PUSHUPS -> 10
+        Task.SQUATS -> 15
         Task.STEPS -> 50
         Task.MATH -> 3
         Task.SHAKE -> 30
@@ -68,46 +65,12 @@ object Alarm {
     }
 }
 
-// ---------- shared helpers for QR + photo tasks ----------
+// ---------- QR helper ----------
 
 fun Activity.scan(onOk: (String) -> Unit) {
     GmsBarcodeScanning.getClient(this).startScan()
         .addOnSuccessListener { r -> r.rawValue?.let(onOk) }
         .addOnFailureListener { Toast.makeText(this, "Scan failed: ${it.message}", Toast.LENGTH_LONG).show() }
-}
-
-const val REQ_PHOTO = 42
-
-private fun Context.photoUri(): Uri {
-    val f = File(cacheDir, "photos/shot.jpg").apply { parentFile?.mkdirs(); delete() }
-    return FileProvider.getUriForFile(this, "$packageName.files", f)
-}
-
-/** Opens the system camera app. Result arrives in onActivityResult(REQ_PHOTO). */
-fun Activity.takePhoto() {
-    val i = Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
-        .putExtra(android.provider.MediaStore.EXTRA_OUTPUT, photoUri())
-        .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    try {
-        startActivityForResult(i, REQ_PHOTO)
-    } catch (e: ActivityNotFoundException) {
-        Toast.makeText(this, "No camera app found", Toast.LENGTH_LONG).show()
-    }
-}
-
-/** Runs on-device ML Kit image labeling on the photo just taken. */
-fun Context.labelLastPhoto(onDone: (List<ImageLabel>) -> Unit) {
-    val f = File(cacheDir, "photos/shot.jpg")
-    if (!f.exists() || f.length() == 0L) { onDone(emptyList()); return }
-    val img = runCatching { InputImage.fromFilePath(this, Uri.fromFile(f)) }.getOrNull()
-        ?: run { onDone(emptyList()); return }
-    ImageLabeling.getClient(ImageLabelerOptions.Builder().setConfidenceThreshold(0.4f).build())
-        .process(img)
-        .addOnSuccessListener { onDone(it.sortedByDescending { l -> l.confidence }) }
-        .addOnFailureListener {
-            Toast.makeText(this, "Couldn't analyse photo: ${it.message}", Toast.LENGTH_LONG).show()
-            onDone(emptyList())
-        }
 }
 
 // ---------- alarm plumbing ----------
