@@ -41,7 +41,7 @@ class MainActivity : Activity() {
 
         setupBtn = btn("") { runSetup() }
         amountLabel = TextView(this).apply { textSize = 17f }
-        amountBox = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; ems = 4 }
+        amountBox = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; setEms(4) }
         amountRow = LinearLayout(this).apply { addView(amountLabel); addView(amountBox) }
 
         setContentView(ScrollView(this).apply {
