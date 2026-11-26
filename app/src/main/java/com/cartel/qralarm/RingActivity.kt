@@ -32,6 +32,9 @@ import kotlin.random.Random
  * Shown while the alarm rings. The sound only stops once the chosen task is done.
  * With extra "disarm" = true it is used to switch the alarm off (same task required).
  */
+/** Temporary while testing: shows a button that stops the alarm without doing the task. Set to false to remove. */
+const val TEST_STOP_BUTTON = true
+
 class RingActivity : ComponentActivity(), SensorEventListener {
     private val disarm by lazy { intent.getBooleanExtra("disarm", false) }
     private lateinit var task: Task
@@ -102,6 +105,10 @@ class RingActivity : ComponentActivity(), SensorEventListener {
             addView(answerBox)
             addView(action, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             addView(LinearLayout(this@RingActivity).apply { addView(flip); addView(giveUp) })
+            if (TEST_STOP_BUTTON) addView(Button(this@RingActivity).apply {
+                text = "STOP (testing)"
+                setOnClickListener { done() }
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         })
         setupTask()
     }
